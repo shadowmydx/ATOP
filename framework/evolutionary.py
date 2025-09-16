@@ -23,4 +23,4 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
                 children_solutions.append(child_solution)
             current_populations += children_solutions
             current_populations = self.selector(current_populations)
-        return super().optimize(init_solutions)
+        return current_populations
