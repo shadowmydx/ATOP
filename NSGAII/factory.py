@@ -11,12 +11,19 @@ class NSGASolution:
     def __init__(self, item, fitness_score):
         self.item = item
         self.fitness_score = fitness_score
+        self.crowding_distance = 0
     
     def get_item(self):
         return self.item
     
     def get_fitness_score(self):
         return self.fitness_score
+    
+    def set_crowding_distance(self, distance):
+        self.crowding_distance = distance
+
+    def get_crowding_distance(self, distance):
+        return self.crowding_distance
 
 
 def nsga_pareto_sort(population):
@@ -56,6 +63,44 @@ def nsga_pareto_sort(population):
     return [[population[i] for i in sublist] for sublist in fronts[: -1]]
 
 
+def sort_by_crowding_distance(front):
+    if not front or len(front) <= 2:
+        for sol in front:
+            sol.crowding_distance = float('inf')
+        return
+    num_objectives = len(front[0].get_fitness_score())
+    num_solutions = len(front)
+    for sol in front:
+        sol.crowding_distance = 0
+    for obj_idx in range(num_objectives):
+        front.sort(key=lambda sol: sol.get_fitness_score()[obj_idx])
+        front[0].crowding_distance = float('inf')
+        front[num_solutions - 1].crowding_distance = float('inf')
+        obj_min = front[0].get_fitness_score()[obj_idx]
+        obj_max = front[num_solutions - 1].get_fitness_score()[obj_idx]
+        if obj_max - obj_min == 0:
+            continue
+        for i in range(1, num_solutions - 1):
+            front[i].crowding_distance += \
+                (front[i+1].get_fitness_score()[obj_idx] - front[i-1].get_fitness_score()[obj_idx]) / (obj_max - obj_min)
+    front.sort(key=lambda sol: sol.crowding_distance, reverse=True)
+    return front
+
+
+
+def nsga_pareto_selection(population, limitation):
+    total_fronts = nsga_pareto_sort(population)
+    new_population = list()
+    cur_solution = 0
+    for each_front in total_fronts:
+        sort_by_crowding_distance(each_front)
+        for each_sol in each_front:
+            if cur_solution < limitation:
+                new_population.append(each_sol)
+                cur_solution += 1
+    return new_population
+
+
 def test_pareto_sort():
     test_solutions = [
         NSGASolution("A", (10, 5)),    
@@ -73,6 +118,9 @@ def test_pareto_sort():
         for each_solution in each_item:
             print(each_solution.get_fitness_score())
         print("one front end.")
+    test_population = nsga_pareto_selection(test_solutions, 3)
+    for each_item in test_population:
+        print(each_item.get_fitness_score())
 
 
 if __name__ == "__main__":
