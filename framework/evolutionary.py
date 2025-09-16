@@ -1,4 +1,4 @@
-import optimizer
+from framework import optimizer
 
 
 class EvolutionaryAlgorithm(optimizer.Optimizer):
