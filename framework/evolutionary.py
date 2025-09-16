@@ -20,8 +20,8 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
             children_solutions = list()
             for each_solution in current_populations:
                 child_solution = self.mutator(each_solution)
-                child_solution = self.fitness(child_solution)
                 children_solutions.append(child_solution)
+            self.fitness(children_solutions)
             current_populations += children_solutions
             current_populations = self.selector(current_populations, population_size)
         return current_populations
