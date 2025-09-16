@@ -13,6 +13,7 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
     def optimize(self, init_solutions):
         start_index = 0
         current_populations = init_solutions
+        population_size = len(current_populations)
         for each_solution in current_populations:
             self.fitness(each_solution)
         while start_index <= self.iteration_limits:
@@ -22,5 +23,5 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
                 child_solution = self.fitness(child_solution)
                 children_solutions.append(child_solution)
             current_populations += children_solutions
-            current_populations = self.selector(current_populations)
+            current_populations = self.selector(current_populations, population_size)
         return current_populations

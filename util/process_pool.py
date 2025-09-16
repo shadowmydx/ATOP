@@ -18,11 +18,9 @@ def execute_task(target_queue, command):
     except subprocess.CalledProcessError as e:
         error_message = f"Execution failed: {e.stderr}"
         target_queue.put((pid, error_message))
-
     except FileNotFoundError:
         error_message = f"Command '{command[0]}' not found."
         target_queue.put((pid, error_message))
-    
     finally:
         target_queue.put((pid, None))
 
