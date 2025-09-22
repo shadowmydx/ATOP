@@ -1,5 +1,6 @@
 import random
 import sympy
+from enum import Enum
 
 
 class InterLayer:
@@ -8,6 +9,40 @@ class InterLayer:
         self.num_nodes_per_layer = num_nodes_per_layer
         self.connection_blocks = connection_blocks
         self.total_layers = len(self.num_nodes_per_layer)
+
+
+class NodeType(Enum):
+    GPU = 'GPU'
+    SWITCH = 'SWITCH'
+
+
+class GraphNode:
+
+    _next_id = 0
+
+    def __init__(self, node_type: NodeType):
+        if not isinstance(node_type, NodeType):
+            raise TypeError("Node type must be a NodeType enum.")
+
+        self.node_id = GraphNode._next_id
+        GraphNode._next_id += 1
+        
+        self.node_type = node_type
+    
+    @classmethod
+    def reset_id_counter(cls):
+        cls._next_id = 0
+
+    def __hash__(self):
+        return hash(self.node_id)
+        
+    def __eq__(self, other):
+        if not isinstance(other, GraphNode):
+            return NotImplemented
+        return self.node_id == other.node_id
+
+    def __repr__(self):
+        return f"Node(id={self.node_id}, type={self.node_type.value})"
 
 
 def construct_total_inter_connection(total_gpus, total_layers):
@@ -37,6 +72,25 @@ def construct_total_inter_connection(total_gpus, total_layers):
     return InterLayer(target_layers, target_connection_blocks)
 
 
+def construct_graph_by_inter_layers(inter_layer: InterLayer):
+    res_graph = dict()
+    source_node_container = dict()
+    for each_source_node in list(inter_layer.connection_blocks):
+        if each_source_node[0] not in source_node_container:
+            source_node_container[each_source_node[0]] = list()
+        source_node_container[each_source_node[0]].append(each_source_node[1])
+    for each_layer in inter_layer.num_nodes_per_layer:
+        for each_node_index in range(each_layer):
+            cur_node = GraphNode()
+            if cur_node not in res_graph[cur_node]:
+                res_graph[cur_node] = dict()
+            linked_layers = source_node_container[each_layer]
+    GraphNode.reset_id_counter()
+    return res_graph
+
+
+
 if __name__ == "__main__":
     print(sympy.divisors(13))
-    print(construct_total_inter_connection(40, 4))
+    test_inter = construct_total_inter_connection(40, 4)
+    construct_graph_by_inter_layers(test_inter)
