@@ -20,7 +20,7 @@ def construct_total_inter_connection(total_gpus, total_layers):
         target_layers.append(current_num_switches)
     target_connection_blocks = dict()
     real_total_laysers = len(target_layers)
-    for i_index in range(1, real_total_laysers - 1):
+    for i_index in range(real_total_laysers - 1):
         for j_index in range(i_index + 1, real_total_laysers):
             if (i_index, j_index) not in target_connection_blocks:
                 target_connection_blocks[(i_index, j_index)] = dict()
