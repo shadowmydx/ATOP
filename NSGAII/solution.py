@@ -1,3 +1,9 @@
+class NetTopology:
+
+    def __init__(self):
+        pass
+
+
 class NSGASolution:
 
     def __init__(self, item, fitness_score):
