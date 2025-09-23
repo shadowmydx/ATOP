@@ -26,7 +26,7 @@ class GraphNode:
 
         self.node_id = GraphNode._next_id
         GraphNode._next_id += 1
-        
+        self.siblings = dict()
         self.node_type = node_type
     
     @classmethod
@@ -75,16 +75,28 @@ def construct_total_inter_connection(total_gpus, total_layers):
 def construct_graph_by_inter_layers(inter_layer: InterLayer):
     res_graph = dict()
     source_node_container = dict()
-    for each_source_node in list(inter_layer.connection_blocks):
-        if each_source_node[0] not in source_node_container:
-            source_node_container[each_source_node[0]] = list()
-        source_node_container[each_source_node[0]].append(each_source_node[1])
+    should_be_gpu = True
     for each_layer in inter_layer.num_nodes_per_layer:
-        for each_node_index in range(each_layer):
-            cur_node = GraphNode()
-            if cur_node not in res_graph[cur_node]:
-                res_graph[cur_node] = dict()
-            linked_layers = source_node_container[each_layer]
+        for _ in range(each_layer):
+            node_type = NodeType.GPU if should_be_gpu else NodeType.SWITCH
+            cur_node = GraphNode(node_type)
+            res_graph[cur_node.node_id] = cur_node
+        should_be_gpu = False
+    for each_source_layers in list(inter_layer.connection_blocks):
+        if each_source_layers[0] not in source_node_container:
+            source_node_container[each_source_layers[0]] = list()
+        source_node_container[each_source_layers[0]].append(each_source_layers[1])
+    start_node_index_in_cur_layer = 0
+    for each_layer_index in range(inter_layer.total_layers - 1):
+        cur_layer = inter_layer.num_nodes_per_layer[each_layer_index]
+        for each_node_index in range(cur_layer):
+            target_linked_layers = source_node_container[each_layer_index]
+            cur_node = res_graph[each_node_index]
+            cur_block = (each_node_index - start_node_index_in_cur_layer) % cur_layer
+            for each_target_layer in target_linked_layers:
+                cur_connection_block = inter_layer.connection_blocks[(each_layer_index, each_target_layer)]
+        start_node_index_in_cur_layer += cur_layer
+                
     GraphNode.reset_id_counter()
     return res_graph
 
@@ -92,5 +104,5 @@ def construct_graph_by_inter_layers(inter_layer: InterLayer):
 
 if __name__ == "__main__":
     print(sympy.divisors(13))
-    test_inter = construct_total_inter_connection(40, 4)
+    test_inter = construct_total_inter_connection(10, 4)
     construct_graph_by_inter_layers(test_inter)
