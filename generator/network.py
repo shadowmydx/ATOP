@@ -1,14 +1,15 @@
 import random
 import sympy
+import sys
 from enum import Enum
 
 
 class InterLayer:
 
     def __init__(self, num_nodes_per_layer, connection_blocks):
-        self.num_nodes_per_layer = num_nodes_per_layer
+        self.layers = num_nodes_per_layer
         self.connection_blocks = connection_blocks
-        self.total_layers = len(self.num_nodes_per_layer)
+        self.total_layers = len(self.layers)
 
 
 class NodeType(Enum):
@@ -72,6 +73,19 @@ def construct_total_inter_connection(total_gpus, total_layers):
     return InterLayer(target_layers, target_connection_blocks)
 
 
+""" def transform_block_node_to_node_index(num_blocks, node_in_block, layer_index, total_layers):
+    return None
+
+
+def transform_node_index_to_block_node(node_index, block_index, layer_index, total_layers):
+    return None
+
+
+def calculate_mapping_block_node(target_connection_container, target_num_nodes, source_node_in_block):
+    num_links = target_connection_container["e_ij"]
+    return [(num_links * (source_node_in_block - 1) + m) % int(target_num_nodes / target_connection_container["j"]) + 1 for m in range(1, num_links + 1)]
+
+
 def construct_graph_by_inter_layers(inter_layer: InterLayer):
     res_graph = dict()
     source_node_container = dict()
@@ -89,20 +103,103 @@ def construct_graph_by_inter_layers(inter_layer: InterLayer):
     start_node_index_in_cur_layer = 0
     for each_layer_index in range(inter_layer.total_layers - 1):
         cur_layer = inter_layer.num_nodes_per_layer[each_layer_index]
-        for each_node_index in range(cur_layer):
+        for each_node_index in range(start_node_index_in_cur_layer, cur_layer + start_node_index_in_cur_layer):
             target_linked_layers = source_node_container[each_layer_index]
             cur_node = res_graph[each_node_index]
             cur_block = (each_node_index - start_node_index_in_cur_layer) % cur_layer
             for each_target_layer in target_linked_layers:
                 cur_connection_block = inter_layer.connection_blocks[(each_layer_index, each_target_layer)]
+            
         start_node_index_in_cur_layer += cur_layer
                 
     GraphNode.reset_id_counter()
-    return res_graph
+    return res_graph """
+
+
+def construct_topology(total_gpus: int, total_layers: int):
+    GraphNode.reset_id_counter()
+    inter_layer_data = construct_total_inter_connection(total_gpus, total_layers)
+    layers_nodes_count = inter_layer_data.layers
+    connection_blocks = inter_layer_data.connection_blocks
+    layers = []
+    for i, node_count in enumerate(layers_nodes_count):
+        if node_count == 0:
+            layers.append([])  
+            continue
+        layer_nodes = []
+        node_type = NodeType.GPU if i == 0 else NodeType.SWITCH
+        for _ in range(node_count):
+            layer_nodes.append(GraphNode(node_type))
+        layers.append(layer_nodes)
+        
+    for (i, j), params in connection_blocks.items():
+        params = connection_blocks.get((i, j))
+        if 'i' not in params:
+            continue
+        num_blocks_i = params["i"]
+        num_blocks_j = params["j"]
+        e_ij = params["e_ij"]
+        
+        if not layers[i] or not layers[j]:
+            continue
+
+        block_size_i = layers_nodes_count[i] // num_blocks_i
+        block_size_j = layers_nodes_count[j] // num_blocks_j
+        
+        for k in range(num_blocks_i):
+            target_block_j_index = (k % num_blocks_j)
+            
+            for m in range(block_size_i):
+                source_node_index = k * block_size_i + m
+                source_node = layers[i][source_node_index]
+                
+                for link in range(1, e_ij + 1):
+                    target_node_index_in_block = (e_ij * m + link - 1) % block_size_j
+                    target_node_index = target_block_j_index * block_size_j + target_node_index_in_block
+                    target_node = layers[j][target_node_index]
+                    
+                    source_node.siblings[target_node.node_id] = target_node
+                    target_node.siblings[source_node.node_id] = source_node
+
+    return layers
 
 
 
 if __name__ == "__main__":
-    print(sympy.divisors(13))
-    test_inter = construct_total_inter_connection(10, 4)
-    construct_graph_by_inter_layers(test_inter)
+    total_gpus = 16
+    total_layers = 3
+
+    # 1. Build the topology
+    print(f"--- Building a topology with {total_layers} layers and {total_gpus} GPUs ---")
+    try:
+        topology = construct_topology(total_gpus, total_layers)
+        print("Topology successfully built.")
+    except Exception as e:
+        print(f"Error during topology construction: {e}")
+        sys.exit(1)
+
+    # 2. Print detailed topology information
+    print("\n--- Topology Details ---")
+    total_nodes = 0
+    for i, layer in enumerate(topology):
+        print(f"Layer {i} ({'GPU' if i == 0 else 'Switch'}): Node count = {len(layer)}")
+        total_nodes += len(layer)
+        for node in layer:
+            sibling_ids = sorted([node.node_id for node in node.siblings.values()])
+            print(f"  - Node {node.node_id} ({node.node_type.value}) connected to: {sibling_ids}")
+    print(f"\nTotal nodes in topology: {total_nodes}")
+
+    # 3. Validate bidirectional connections
+    print("\n--- Topology Integrity Check ---")
+    all_connections_valid = True
+    for layer in topology:
+        for node in layer:
+            for neighbor in node.siblings.values():
+                if node.node_id not in neighbor.siblings:
+                    print(f"Error: Node {node.node_id} connects to {neighbor.node_id}, but {neighbor.node_id} does not connect back.")
+                    all_connections_valid = False
+
+    if all_connections_valid:
+        print("All connections are bidirectional. Topology is complete and valid.")
+    else:
+        print("Topology build failed: Unidirectional connections found.")
