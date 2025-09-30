@@ -1,4 +1,5 @@
 from framework import optimizer
+from tqdm import tqdm
 
 
 class EvolutionaryAlgorithm(optimizer.Optimizer):
@@ -11,12 +12,11 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
         self.iteration_limits = iteration_limits
 
     def optimize(self, init_solutions):
-        start_index = 0
         current_populations = init_solutions
         population_size = len(current_populations)
         for each_solution in current_populations:
             self.fitness(each_solution)
-        while start_index <= self.iteration_limits:
+        for _ in tqdm(range(self.iteration_limits), desc="Optimizing Generations"):
             children_solutions = list()
             for each_solution in current_populations:
                 child_solution = self.mutator(each_solution)

@@ -6,4 +6,4 @@ from NSGAII.solution import NSGASolution
 
 
 def nsga_atop_mutation(solution):
-    pass
+    return solution

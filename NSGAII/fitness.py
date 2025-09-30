@@ -7,4 +7,4 @@ from util.process_pool import ProcessPool
 
 
 def nsga_atop_fitness_calculation(population):
-    pass
+    return population
