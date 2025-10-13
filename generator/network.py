@@ -137,26 +137,15 @@ def generate_intra_layer_blueprint(num_nodes_per_layer, d_max):
 
 
 def test_blueprint_generation(test_case_name, num_nodes, max_dims):
-    """
-    一个独立的函数，用于测试 generate_intra_layer_blueprint 的功能。
-
-    Args:
-        test_case_name (str): 测试用例的名称。
-        num_nodes (List[int]): 用于测试的每层节点数列表。
-        max_dims (int): 用于测试的最大维度数。
-    """
     print(f"\n===== Running Test Case: {test_case_name} =====")
     print(f"Parameters: Node counts={num_nodes}, Max dimensions={max_dims}")
 
-    # 1. 调用函数生成蓝图
     blueprint = generate_intra_layer_blueprint(num_nodes, max_dims)
 
-    # 2. 使用 pprint 模块美观地打印结果
     print("\n--- Generated Blueprint ---")
     pp = pprint.PrettyPrinter(indent=2, width=100)
     pp.pprint(blueprint)
 
-    # 3. 自动验证蓝图的正确性
     print("\n--- Verifying Blueprint Integrity ---")
     try:
         for layer_idx, params in blueprint.items():
@@ -166,7 +155,6 @@ def test_blueprint_generation(test_case_name, num_nodes, max_dims):
             assert 0 <= D_i <= max_dims, f"Layer {layer_idx} Di={D_i} is out of range [0, {max_dims}]"
 
             if D_i > 0:
-                # 验证 Sik
                 Sik = params['Sik']
                 assert len(Sik) == D_i, f"Layer {layer_idx} len(Sik)={len(Sik)} != Di={D_i}"
                 product_Sik = 1
@@ -174,14 +162,12 @@ def test_blueprint_generation(test_case_name, num_nodes, max_dims):
                 assert product_Sik == num_nodes[layer_idx], \
                     f"Layer {layer_idx} product of Sik={product_Sik} != N_i={num_nodes[layer_idx]}"
 
-                # 验证 Pik
                 Pik = params['Pik']
                 assert len(Pik) == D_i, f"Layer {layer_idx} len(Pik)={len(Pik)} != Di={D_i}"
                 for k in range(D_i):
                     assert 0 <= Pik[k] < Sik[k], \
                         f"Layer {layer_idx} Pik[{k}]={Pik[k]} is out of range [0, {Sik[k]-1}]"
                 
-                # 验证 A 和 C 的维度 (可选，但推荐)
                 A = params['A']
                 C = params['C']
                 assert len(A) == D_i
@@ -198,48 +184,6 @@ def test_blueprint_generation(test_case_name, num_nodes, max_dims):
         print(f"\n[FAILURE] Blueprint validation failed: {e}")
     
     print("=" * (len(test_case_name) + 28))
-
-""" def transform_block_node_to_node_index(num_blocks, node_in_block, layer_index, total_layers):
-    return None
-
-
-def transform_node_index_to_block_node(node_index, block_index, layer_index, total_layers):
-    return None
-
-
-def calculate_mapping_block_node(target_connection_container, target_num_nodes, source_node_in_block):
-    num_links = target_connection_container["e_ij"]
-    return [(num_links * (source_node_in_block - 1) + m) % int(target_num_nodes / target_connection_container["j"]) + 1 for m in range(1, num_links + 1)]
-
-
-def construct_graph_by_inter_layers(inter_layer: InterLayer):
-    res_graph = dict()
-    source_node_container = dict()
-    should_be_gpu = True
-    for each_layer in inter_layer.num_nodes_per_layer:
-        for _ in range(each_layer):
-            node_type = NodeType.GPU if should_be_gpu else NodeType.SWITCH
-            cur_node = GraphNode(node_type)
-            res_graph[cur_node.node_id] = cur_node
-        should_be_gpu = False
-    for each_source_layers in list(inter_layer.connection_blocks):
-        if each_source_layers[0] not in source_node_container:
-            source_node_container[each_source_layers[0]] = list()
-        source_node_container[each_source_layers[0]].append(each_source_layers[1])
-    start_node_index_in_cur_layer = 0
-    for each_layer_index in range(inter_layer.total_layers - 1):
-        cur_layer = inter_layer.num_nodes_per_layer[each_layer_index]
-        for each_node_index in range(start_node_index_in_cur_layer, cur_layer + start_node_index_in_cur_layer):
-            target_linked_layers = source_node_container[each_layer_index]
-            cur_node = res_graph[each_node_index]
-            cur_block = (each_node_index - start_node_index_in_cur_layer) % cur_layer
-            for each_target_layer in target_linked_layers:
-                cur_connection_block = inter_layer.connection_blocks[(each_layer_index, each_target_layer)]
-            
-        start_node_index_in_cur_layer += cur_layer
-                
-    GraphNode.reset_id_counter()
-    return res_graph """
 
 
 def construct_topology(total_gpus: int, total_layers: int):
