@@ -1,6 +1,7 @@
 import random
 import sympy
 import sys
+import pprint
 from enum import Enum
 
 
@@ -72,6 +73,131 @@ def construct_total_inter_connection(total_gpus, total_layers):
             target_connection_blocks[(i_index, j_index)]["b_ij"] = layer_bandwidth
     return InterLayer(target_layers, target_connection_blocks)
 
+
+def generate_intra_layer_blueprint(num_nodes_per_layer, d_max):
+    blueprint = {}
+    num_layers = len(num_nodes_per_layer)
+    for i in range(num_layers):
+        N_i = num_nodes_per_layer[i]
+        if N_i <= 1:
+            continue
+
+        layer_params = {}
+        
+        D_i = random.randint(0, d_max)
+        if D_i == 0:
+            blueprint[i] = {'Di': 0}
+            continue 
+        layer_params['Di'] = D_i
+
+        Sik_list = []
+        n_remained = N_i
+        for k in range(D_i):
+            if k < D_i - 1: 
+                possible_divisors = sympy.divisors(n_remained)
+                S_ik = random.choice(possible_divisors)
+                Sik_list.append(S_ik)
+                n_remained //= S_ik
+            else: 
+                Sik_list.append(n_remained)
+        layer_params['Sik'] = Sik_list
+
+        Pik_list = []
+        A_matrix = [] # A[k][r][t]
+        C_matrix = [] # C[k][t]
+        
+        for k in range(D_i):
+            S_ik = Sik_list[k]
+            
+            P_ik = random.randint(0, S_ik - 1)
+            Pik_list.append(P_ik)
+
+            A_k = []
+            C_k = []
+            for t in range(D_i):
+                A_k_t = []
+                for r in range(D_i + 1):
+                    A_ikrt = random.randint(-S_ik, S_ik)
+                    A_k_t.append(A_ikrt)
+                
+                C_tik = random.randint(-S_ik, S_ik)
+                C_k.append(C_tik)
+                A_k.append(A_k_t)
+
+            A_matrix.append(A_k)
+            C_matrix.append(C_k)
+
+        layer_params['Pik'] = Pik_list
+        layer_params['A'] = A_matrix
+        layer_params['C'] = C_matrix
+        layer_params['Bii'] = random.randint(1, 4)
+        blueprint[i] = layer_params
+        
+    return blueprint
+
+
+def test_blueprint_generation(test_case_name, num_nodes, max_dims):
+    """
+    一个独立的函数，用于测试 generate_intra_layer_blueprint 的功能。
+
+    Args:
+        test_case_name (str): 测试用例的名称。
+        num_nodes (List[int]): 用于测试的每层节点数列表。
+        max_dims (int): 用于测试的最大维度数。
+    """
+    print(f"\n===== Running Test Case: {test_case_name} =====")
+    print(f"Parameters: Node counts={num_nodes}, Max dimensions={max_dims}")
+
+    # 1. 调用函数生成蓝图
+    blueprint = generate_intra_layer_blueprint(num_nodes, max_dims)
+
+    # 2. 使用 pprint 模块美观地打印结果
+    print("\n--- Generated Blueprint ---")
+    pp = pprint.PrettyPrinter(indent=2, width=100)
+    pp.pprint(blueprint)
+
+    # 3. 自动验证蓝图的正确性
+    print("\n--- Verifying Blueprint Integrity ---")
+    try:
+        for layer_idx, params in blueprint.items():
+            print(f"Verifying Layer {layer_idx}...")
+            assert 'Di' in params, f"Layer {layer_idx} missing 'Di'"
+            D_i = params['Di']
+            assert 0 <= D_i <= max_dims, f"Layer {layer_idx} Di={D_i} is out of range [0, {max_dims}]"
+
+            if D_i > 0:
+                # 验证 Sik
+                Sik = params['Sik']
+                assert len(Sik) == D_i, f"Layer {layer_idx} len(Sik)={len(Sik)} != Di={D_i}"
+                product_Sik = 1
+                for s in Sik: product_Sik *= s
+                assert product_Sik == num_nodes[layer_idx], \
+                    f"Layer {layer_idx} product of Sik={product_Sik} != N_i={num_nodes[layer_idx]}"
+
+                # 验证 Pik
+                Pik = params['Pik']
+                assert len(Pik) == D_i, f"Layer {layer_idx} len(Pik)={len(Pik)} != Di={D_i}"
+                for k in range(D_i):
+                    assert 0 <= Pik[k] < Sik[k], \
+                        f"Layer {layer_idx} Pik[{k}]={Pik[k]} is out of range [0, {Sik[k]-1}]"
+                
+                # 验证 A 和 C 的维度 (可选，但推荐)
+                A = params['A']
+                C = params['C']
+                assert len(A) == D_i
+                assert len(C) == D_i
+                for k in range(D_i):
+                    assert len(A[k]) == D_i
+                    assert len(C[k]) == D_i
+                    for t in range(D_i):
+                        assert len(A[k][t]) == D_i + 1
+        
+        print("\n[SUCCESS] Blueprint validation passed all checks.")
+
+    except AssertionError as e:
+        print(f"\n[FAILURE] Blueprint validation failed: {e}")
+    
+    print("=" * (len(test_case_name) + 28))
 
 """ def transform_block_node_to_node_index(num_blocks, node_in_block, layer_index, total_layers):
     return None
@@ -203,3 +329,4 @@ if __name__ == "__main__":
         print("All connections are bidirectional. Topology is complete and valid.")
     else:
         print("Topology build failed: Unidirectional connections found.")
+    test_blueprint_generation("unit test", [72, 24, 24], 3)
