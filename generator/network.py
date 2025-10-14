@@ -186,12 +186,89 @@ def test_blueprint_generation(test_case_name, num_nodes, max_dims):
     print("=" * (len(test_case_name) + 28))
 
 
-def construct_topology(total_gpus: int, total_layers: int):
+def _virtual_idx_to_coords(virtual_idx, Sik):
+    """将节点的1D虚拟索引转换为多维坐标。"""
+    coords = []
+    temp_idx = virtual_idx
+    # 从最后一个维度开始计算，维度尺寸列表也应该相应反转
+    # 例如 32 = 8x4, 索引20 -> 20 // 4 = 5 (dim0), 20 % 4 = 0 (dim1) -> (5,0)
+    # 这要求我们知道每个维度的乘数，或者反向计算
+    # temp_idx = 20, Sik = [8, 4]
+    # reversed(Sik) = [4, 8]
+    # temp_idx % 4 = 0 (coord for dim1), temp_idx //= 4 -> 5
+    # temp_idx % 8 = 5 (coord for dim0), temp_idx //= 8 -> 0
+    # coords = [0], then [5, 0]
+    
+    # 修正坐标计算逻辑，使其更直观
+    # idx = x1 * S2*S3... + x2 * S3*S4... + ...
+    # 因此 x1 = idx // (S2*S3...), rem = idx % (S2*S3...)
+    # x2 = rem // (S3*S4...), ...
+    product = 1
+    for s in Sik[1:]:
+        product *= s
+        
+    rem = virtual_idx
+    for i in range(len(Sik)):
+        coord = rem // product
+        coords.append(coord)
+        rem %= product
+        if i < len(Sik) - 1:
+            product //= Sik[i+1] if Sik[i+1] > 0 else 1
+            if product == 0: product = 1
+            
+    return coords
+
+
+def _coords_to_virtual_idx(coords, Sik):
+    virtual_idx = 0
+    multiplier = 1
+    for i in range(len(Sik) - 1, -1, -1):
+        virtual_idx += coords[i] * multiplier
+        if i > 0:
+            multiplier *= Sik[i]
+    return virtual_idx
+
+
+def add_intra_layer_connections(layers, intra_blueprint):
+    for layer_idx, params in intra_blueprint.items():
+        if params.get('Di', 0) == 0:
+            continue
+        nodes_in_layer = layers[layer_idx]
+        if not nodes_in_layer:
+            continue
+        Di = params['Di']
+        Sik = params['Sik']
+        Pik = params['Pik']
+        A = params['A']
+        C = params['C']
+        for source_virtual_idx, source_node in enumerate(nodes_in_layer):
+            source_coords = _virtual_idx_to_coords(source_virtual_idx, Sik)
+            for k in range(Di):
+                for m in range(1, Pik[k] + 1): # m from 1 to Pik[k]
+                    dest_coords = [0] * Di
+                    for t in range(Di):
+                        m_term = A[k][t][0] * m
+                        sum_term = sum(A[k][t][r] * source_coords[r-1] for r in range(1, Di + 1))
+                        c_term = C[k][t]
+                        S_it = Sik[t]
+                        dest_coords[t] = (m_term + sum_term + c_term) % S_it
+                    dest_virtual_idx = _coords_to_virtual_idx(dest_coords, Sik)
+                    dest_node = nodes_in_layer[dest_virtual_idx]
+                    if source_node.node_id == dest_node.node_id:
+                        continue
+                    if dest_node.node_id not in source_node.siblings:
+                        source_node.siblings[dest_node.node_id] = dest_node
+                        dest_node.siblings[source_node.node_id] = source_node
+
+
+def construct_topology(total_gpus: int, total_layers: int, d_max=2):
     GraphNode.reset_id_counter()
     inter_layer_data = construct_total_inter_connection(total_gpus, total_layers)
     layers_nodes_count = inter_layer_data.layers
+    intra_blueprint = generate_intra_layer_blueprint(layers_nodes_count, d_max)
     connection_blocks = inter_layer_data.connection_blocks
     layers = []
+    all_nodes = dict()
     for i, node_count in enumerate(layers_nodes_count):
         if node_count == 0:
             layers.append([])  
@@ -199,7 +276,9 @@ def construct_topology(total_gpus: int, total_layers: int):
         layer_nodes = []
         node_type = NodeType.GPU if i == 0 else NodeType.SWITCH
         for _ in range(node_count):
-            layer_nodes.append(GraphNode(node_type))
+            cur_node = GraphNode(node_type)
+            all_nodes[cur_node.node_id] = cur_node
+            layer_nodes.append(cur_node)
         layers.append(layer_nodes)
         
     for (i, j), params in connection_blocks.items():
@@ -230,7 +309,7 @@ def construct_topology(total_gpus: int, total_layers: int):
                     
                     source_node.siblings[target_node.node_id] = target_node
                     target_node.siblings[source_node.node_id] = source_node
-
+    add_intra_layer_connections(layers, intra_blueprint)
     return layers
 
 
@@ -241,6 +320,7 @@ if __name__ == "__main__":
 
     # 1. Build the topology
     print(f"--- Building a topology with {total_layers} layers and {total_gpus} GPUs ---")
+    construct_topology(total_gpus, total_layers)
     try:
         topology = construct_topology(total_gpus, total_layers)
         print("Topology successfully built.")
