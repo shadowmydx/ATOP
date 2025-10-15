@@ -280,7 +280,6 @@ def construct_topology(total_gpus: int, total_layers: int, d_max=2):
             all_nodes[cur_node.node_id] = cur_node
             layer_nodes.append(cur_node)
         layers.append(layer_nodes)
-        
     for (i, j), params in connection_blocks.items():
         params = connection_blocks.get((i, j))
         if 'i' not in params:
