@@ -1,7 +1,13 @@
 class NetTopology:
 
-    def __init__(self):
-        pass
+    TOTAL_GPUS = 0
+    MAX_LAYERS = 0
+    MAX_DIMENSION = 0
+
+    def __init__(self, topology, connection_blocks, blueprint):
+        self.topology = topology
+        self.connection_blocks = connection_blocks
+        self.blueprint = blueprint
 
 
 class NSGASolution:
@@ -22,3 +28,9 @@ class NSGASolution:
 
     def get_crowding_distance(self, distance):
         return self.crowding_distance
+    
+
+def solution_generater(topology, connection_blocks, blueprint):
+    cur_topology = NetTopology(topology, connection_blocks, blueprint)
+    solution = NSGASolution(cur_topology, (0, 0, 0))
+    return solution

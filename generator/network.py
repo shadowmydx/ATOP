@@ -261,7 +261,7 @@ def add_intra_layer_connections(layers, intra_blueprint):
                         dest_node.siblings[source_node.node_id] = source_node
 
 
-def construct_topology(total_gpus: int, total_layers: int, d_max=2):
+def construct_topology(total_gpus: int, total_layers: int, d_max=2, generator=lambda x,y,z: x):
     GraphNode.reset_id_counter()
     inter_layer_data = construct_total_inter_connection(total_gpus, total_layers)
     layers_nodes_count = inter_layer_data.layers
@@ -309,12 +309,12 @@ def construct_topology(total_gpus: int, total_layers: int, d_max=2):
                     source_node.siblings[target_node.node_id] = target_node
                     target_node.siblings[source_node.node_id] = source_node
     add_intra_layer_connections(layers, intra_blueprint)
-    return layers
+    return generator(layers, connection_blocks, intra_blueprint)
 
 
 
 if __name__ == "__main__":
-    total_gpus = 16
+    total_gpus = 160
     total_layers = 3
 
     # 1. Build the topology

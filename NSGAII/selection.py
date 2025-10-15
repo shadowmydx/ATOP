@@ -81,15 +81,15 @@ def nsga_pareto_selection(population, limitation):
 
 def test_pareto_sort():
     test_solutions = [
-        NSGASolution("A", (10, 5)),    
-        NSGASolution("B", (8, 8)),     
-        NSGASolution("C", (5, 12)),    
-        NSGASolution("D", (15, 3)),    
-        NSGASolution("E", (3, 10)),    
-        NSGASolution("F", (8, 2)),     
-        NSGASolution("G", (12, 4)),    
-        NSGASolution("H", (7, 6)),
-        NSGASolution("I", (6, 1))     
+        NSGASolution("A", (10, 5, 3)),    
+        NSGASolution("B", (8, 8, 1)),     
+        NSGASolution("C", (5, 12, 1)),    
+        NSGASolution("D", (15, 3, 2)),    
+        NSGASolution("E", (3, 10, 1)),    
+        NSGASolution("F", (8, 2, 2)),     
+        NSGASolution("G", (12, 4, 3)),    
+        NSGASolution("H", (7, 6, 1)),
+        NSGASolution("I", (6, 1, 2))     
     ]
     test_result = nsga_pareto_sort(test_solutions)
     for each_item in test_result:
