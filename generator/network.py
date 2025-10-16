@@ -4,7 +4,6 @@ import sys
 import pprint
 from enum import Enum
 
-
 class InterLayer:
 
     def __init__(self, num_nodes_per_layer, connection_blocks):
@@ -45,7 +44,6 @@ class GraphNode:
 
     def __repr__(self):
         return f"Node(id={self.node_id}, type={self.node_type.value})"
-
 
 def construct_total_inter_connection(total_gpus, total_layers):
     target_layers = list()
