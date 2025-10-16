@@ -1,5 +1,5 @@
 from typing import Callable
-from generator.node import NodeType, GraphNode
+from generator.network import NodeType, GraphNode
 
 def default_bandwidth(layer_a,layer_b):
     return '800GBps'
