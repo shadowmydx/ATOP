@@ -1,4 +1,7 @@
+import time, sys, os
 from typing import Callable
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(project_root)
 from generator.network import NodeType, GraphNode
 
 def default_bandwidth(layer_a,layer_b):
@@ -8,6 +11,7 @@ def default_latency(layer_a,layer_b):
     return '0.0025ms'
 
 def write_topology_to_simai(node_list: list[list[GraphNode]],bandwidth: Callable=default_bandwidth, latency: Callable=default_latency, switch_per_node: int=4, GPU_type: str='A100', filename: str = "topology.txt") -> None:
+    filename += str(time.time())
     total_nodes = sum(len(layer) for layer in node_list)
     GPU_list = [node for layer in node_list for node in layer if node.node_type == NodeType.GPU]
     GPU_idx_list = [node.node_id for node in GPU_list]
