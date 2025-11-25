@@ -15,3 +15,5 @@ dist/
 *.iml
 
 *.txt
+*.csv
+*.code-workspace
