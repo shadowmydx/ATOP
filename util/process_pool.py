@@ -1,6 +1,7 @@
 import multiprocessing
 import subprocess
 import os
+from concurrent.futures import ProcessPoolExecutor
 
 
 def execute_task(target_queue, command):
@@ -49,7 +50,20 @@ class ProcessPool:
                 result_lst.append(result_parser(result))
         self.processes.clear()
         return result_lst
-    
+
+
+class AdvancedProcessPool:
+    def __init__(self, max_workers=None):
+        self.executor = ProcessPoolExecutor(max_workers=max_workers)
+
+    def execute_func(self, func, tasks_args, result_parser=lambda x: x):
+        raw_results = self.executor.map(func, tasks_args)
+        return [result_parser(r) for r in raw_results]
+
+    def shutdown(self):
+        self.executor.shutdown()
+
+
 
 if __name__ == "__main__":
     test_pool = ProcessPool()

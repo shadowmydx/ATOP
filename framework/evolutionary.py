@@ -14,8 +14,7 @@ class EvolutionaryAlgorithm(optimizer.Optimizer):
     def optimize(self, init_solutions):
         current_populations = init_solutions
         population_size = len(current_populations)
-        for each_solution in current_populations:
-            self.fitness(each_solution)
+        self.fitness(current_populations)
         for _ in tqdm(range(self.iteration_limits), desc="Optimizing Generations"):
             children_solutions = list()
             for each_solution in current_populations:
