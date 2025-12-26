@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 
 def evaluate_single_solution(solution):
-    latency = forestcoll_score(solution)
-    cost = network_cost(solution)
+    latency = 1.0 / forestcoll_score(solution)
+    cost = 1.0 / network_cost(solution)
     
     return (latency, cost, 0)
 
