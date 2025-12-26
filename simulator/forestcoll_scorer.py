@@ -28,7 +28,7 @@ def calculate_optimality_star(nodes, edges, compute_nodes):
     min_in_bw = min(in_bandwidths.values())
     
     if min_in_bw <= 0:
-        return -100
+        return float('inf')
     
     # 1. 设定二分查找的范围 [l, r] [cite: 61]
     # l 是 1/x* 的下界，r 是上界
