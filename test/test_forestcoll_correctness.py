@@ -59,37 +59,32 @@ def main():
     total_gpus = 16
     total_layers = 2
     topology,connection_blocks,intra_blueprint  = construct_topology(total_gpus, total_layers, generator = lambda x,y,z: [x,y,z])
-    nodes = []
+    nodes = topology.nodes
     edges = {}
     compute_nodes = []
-    layer_lookup = {}
-    for i, layer in enumerate(topology):
-        for node in layer:
-            nodes.append(node.node_id)
-            if node.node_type == NodeType.GPU:
-                compute_nodes.append(node.node_id)
-            layer_lookup[node.node_id] = i
-    for i, layer in enumerate(topology):
-        for node in layer:
-            for sibling in node.siblings.values():
-                node_layer = layer_lookup[node.node_id]
-                sibling_layer = layer_lookup[sibling.node_id]
-                if node_layer == sibling_layer:
-                    bandwidth = intra_blueprint[node_layer]['Bii']
-                else:
-                    node_layer, sibling_layer = min(node_layer, sibling_layer), max(node_layer, sibling_layer)
-                    bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
-                edges[(node.node_id, sibling.node_id)] = bandwidth
+
+    for node_id, node in nodes.items():
+        if node.node_type == NodeType.GPU:
+            compute_nodes.append(node_id)
+            
+        for sibling_id in node.siblings:
+            sibling_layer = nodes[sibling_id].layer
+            if node.layer == sibling_layer:
+                bandwidth = intra_blueprint[node.layer]['Bii']
+            else:
+                node_layer, sibling_layer = min(node.layer, sibling_layer), max(node.layer, sibling_layer)
+                bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
+            edges[(node_id, sibling_id)] = bandwidth
     # Score from calculate_optimality_star with timing
     start_opt = time.time()
-    score_optimality = calculate_optimality_star(nodes, edges, compute_nodes)
+    score_optimality = calculate_optimality_star(nodes.keys(), edges, compute_nodes)
     end_opt = time.time()
     print(f"calculate_optimality_star score: {float(score_optimality):.4f}")
     print(f"calculate_optimality_star runtime: {end_opt - start_opt:.6f} seconds")
 
     # Score from forestcoll_bf_calc with timing
     start_bf = time.time()
-    score_bf = forestcoll_bf_calc(nodes, edges, compute_nodes)
+    score_bf = forestcoll_bf_calc(nodes.keys(), edges, compute_nodes)
     end_bf = time.time()
     print(f"forestcoll_bf_calc score: {score_bf:.4f}")
     print(f"forestcoll_bf_calc runtime: {end_bf - start_bf:.6f} seconds")

@@ -86,35 +86,27 @@ compute_nodes = [f'c{i}' for i in range(1, 9)]
 edges = {} # 此处填入拓扑连接和带宽
 # result = calculate_optimality_star(nodes, edges, compute_nodes)
 
-
 def forestcoll_score(solution: NSGASolution):
     net_topo = solution.get_item()
-    topology = net_topo.topology
     connection_blocks = net_topo.connection_blocks
     intra_blueprint = net_topo.blueprint
-
-    nodes = []
+    
+    nodes =  []     
     edges = {}
     compute_nodes = []
-    layer_lookup = {}
-    for i, layer in enumerate(topology):
-        for node in layer:
-            nodes.append(node.node_id)
-            if node.node_type == NodeType.GPU:
-                compute_nodes.append(node.node_id)
-            layer_lookup[node.node_id] = i
     
-    for i, layer in enumerate(topology):
-        for node in layer:
-            for sibling in node.siblings.values():
-                node_layer = layer_lookup[node.node_id]
-                sibling_layer = layer_lookup[sibling.node_id]
-                if node_layer == sibling_layer:
-                    bandwidth = intra_blueprint[node_layer]['Bii']
-                else:
-                    node_layer, sibling_layer = min(node_layer, sibling_layer), max(node_layer, sibling_layer)
-                    bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
-                edges[(node.node_id, sibling.node_id)] = bandwidth
+    for node_id,node in net_topo.topology.nodes.items():
+        nodes.append(node_id)
+        if node.node_type == NodeType.GPU:
+            compute_nodes.append(node_id)
+        for sibling_id in node.siblings:   
+            sibling_layer = net_topo.topology.nodes[sibling_id].layer        
+            if node.layer == sibling_layer:
+                bandwidth = intra_blueprint[node.layer]['Bii']
+            else:
+                node_layer, sibling_layer = min(node.layer, sibling_layer), max(node.layer, sibling_layer)
+                bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
+            edges[(node_id, sibling_id)] = bandwidth
     
     score = calculate_optimality_star(nodes, edges, compute_nodes)
     return score

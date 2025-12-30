@@ -8,20 +8,17 @@ from generator.network import construct_topology
 import os, pickle, csv
 from datetime import datetime
 
-
-total_gpus = 16
+total_gpus = 128
 max_layers = random.randint(1, 5)
 max_dimensions = random.randint(1, 5)
-
 
 def save_results(solutions, save_dir="results"):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
         print(f"Created directory: {save_dir}")
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    pkl_path = os.path.join(save_dir, f"solutions_{timestamp}.pkl")
-    csv_path = os.path.join(save_dir, f"summary_{timestamp}.csv")
+    pkl_path = os.path.join(save_dir, f"solutions_{total_gpus}_{timestamp}.pkl")
+    csv_path = os.path.join(save_dir, f"summary_{total_gpus}_{timestamp}.csv")
 
     print(f"\n[Action] Saving {len(solutions)} solutions to {pkl_path}...")
     try:
@@ -52,7 +49,7 @@ def initilize_solutions():
     NetTopology.MAX_LAYERS = max_layers
     NetTopology.MAX_DIMENSION = max_dimensions
     cur_population = list()
-    initial_solutions = 3
+    initial_solutions = 100
     for _ in range(initial_solutions):
         solution = construct_topology(total_gpus, max_layers, max_dimensions, solution_generater)
         cur_population.append(solution)
@@ -60,7 +57,7 @@ def initilize_solutions():
 
 
 def entry():
-    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation, 3)
+    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation, 3)#10->3
     final_solutions = atop.optimize(initilize_solutions())
     save_results(final_solutions)
 

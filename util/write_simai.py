@@ -11,11 +11,11 @@ def default_bandwidth(layer_a,layer_b):
 def default_latency(layer_a,layer_b):
     return '0.0025ms'
 
-def write_topology_to_simai(node_list: list[list[GraphNode]],bandwidth: Callable=default_bandwidth, latency: Callable=default_latency, switch_per_node: int=4, GPU_type: str='A100', filename: str = "topology.txt") -> None:
-    total_nodes = sum(len(layer) for layer in node_list)
-    GPU_list = [node for layer in node_list for node in layer if node.node_type == NodeType.GPU]
+def write_topology_to_simai(topology,bandwidth: Callable=default_bandwidth, latency: Callable=default_latency, switch_per_node: int=4, GPU_type: str='A100', filename: str = "topology.txt") -> None:
+    total_nodes = len(topology.nodes)
+    GPU_list = [node for node in topology.nodes.values() if node.node_type == NodeType.GPU]
     GPU_idx_list = [node.node_id for node in GPU_list]
-    switch_list = [node for layer in node_list for node in layer if node.node_type == NodeType.SWITCH]
+    switch_list = [node for node in topology.nodes.values() if node.node_type == NodeType.SWITCH]
     switch_idx_list = [node.node_id for node in switch_list]
     
 
@@ -41,11 +41,6 @@ def write_topology_to_simai(node_list: list[list[GraphNode]],bandwidth: Callable
         simai_atop_ref[counter] = switch_idx_list[i]
         counter += 1
     
-    layer_ref = {}
-    for layer_idx in range(len(node_list)):
-        for node in node_list[layer_idx]:
-            layer_ref[node.node_id] = layer_idx
-    
     link_dict = {}
     
     # links from GPU to virtual NIC
@@ -56,20 +51,20 @@ def write_topology_to_simai(node_list: list[list[GraphNode]],bandwidth: Callable
         bw = bandwidth(-1,-1)
         lat = latency(-1,-1)
         link_dict[(source_id, target_id)] = (bw, lat)
-    for layer in node_list:
-        for node in layer:
-            for sibling in node.siblings.keys():
-                if (node.node_id, sibling) not in link_dict and (sibling, node.node_id) not in link_dict:
-                    source_id = atop_simai_ref[node.node_id]
-                    if node.node_type == NodeType.GPU:
-                        source_id = GPU_NIC_ref[source_id]
-                    target_id = atop_simai_ref[sibling]
-                    if node.siblings[sibling].node_type == NodeType.GPU:
-                        target_id = GPU_NIC_ref[target_id]
-                    source_id, target_id = min(source_id, target_id), max(source_id, target_id)
-                    bw = bandwidth(layer_ref[node.node_id], layer_ref[sibling])
-                    lat = latency(layer_ref[node.node_id], layer_ref[sibling])
-                    link_dict[(source_id, target_id)] = (bw, lat)
+
+    for node_id, node in topology.nodes.items():
+        for sibling in node.siblings:
+            if (node_id, sibling) not in link_dict and (sibling, node_id) not in link_dict:
+                source_id = atop_simai_ref[node_id]
+                if node.node_type == NodeType.GPU:
+                    source_id = GPU_NIC_ref[source_id]
+                target_id = atop_simai_ref[sibling]
+                if topology.nodes[sibling].node_type == NodeType.GPU:
+                    target_id = GPU_NIC_ref[target_id]
+                source_id, target_id = min(source_id, target_id), max(source_id, target_id)
+                bw = bandwidth(node.layer,  topology.nodes[sibling].layer)
+                lat = latency(node.layer,  topology.nodes[sibling].layer)
+                link_dict[(source_id, target_id)] = (bw, lat)
 
     total_nodes = total_nodes + len(GPU_idx_list) # add virtual NICs
     with open(filename, 'w') as f:

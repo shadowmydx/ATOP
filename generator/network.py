@@ -4,6 +4,12 @@ import sys
 import pprint
 from enum import Enum
 
+class Topology:
+    def __init__(self, nodes, layers):
+        self.nodes = nodes
+        self.layers = layers
+        
+
 class InterLayer:
 
     def __init__(self, num_nodes_per_layer, connection_blocks):
@@ -21,14 +27,15 @@ class GraphNode:
 
     _next_id = 0
 
-    def __init__(self, node_type: NodeType):
+    def __init__(self, node_type: NodeType, layer):
         if not isinstance(node_type, NodeType):
             raise TypeError("Node type must be a NodeType enum.")
 
         self.node_id = GraphNode._next_id
         GraphNode._next_id += 1
-        self.siblings = dict()
+        self.siblings = set()
         self.node_type = node_type
+        self.layer = layer
     
     @classmethod
     def reset_id_counter(cls):
@@ -227,7 +234,7 @@ def _coords_to_virtual_idx(coords, Sik):
     return virtual_idx
 
 
-def add_intra_layer_connections(layers, intra_blueprint):
+def add_intra_layer_connections(nodes, layers, intra_blueprint):
     for layer_idx, params in intra_blueprint.items():
         if params.get('Di', 0) == 0:
             continue
@@ -239,7 +246,7 @@ def add_intra_layer_connections(layers, intra_blueprint):
         Pik = params['Pik']
         A = params['A']
         C = params['C']
-        for source_virtual_idx, source_node in enumerate(nodes_in_layer):
+        for source_virtual_idx, source_node_id in enumerate(nodes_in_layer):
             source_coords = _virtual_idx_to_coords(source_virtual_idx, Sik)
             for k in range(Di):
                 for m in range(1, Pik[k] + 1): # m from 1 to Pik[k]
@@ -251,12 +258,12 @@ def add_intra_layer_connections(layers, intra_blueprint):
                         S_it = Sik[t]
                         dest_coords[t] = (m_term + sum_term + c_term) % S_it
                     dest_virtual_idx = _coords_to_virtual_idx(dest_coords, Sik)
-                    dest_node = nodes_in_layer[dest_virtual_idx]
-                    if source_node.node_id == dest_node.node_id:
+                    dest_node_id = nodes_in_layer[dest_virtual_idx]
+                    if source_node_id == dest_node_id:
                         continue
-                    if dest_node.node_id not in source_node.siblings:
-                        source_node.siblings[dest_node.node_id] = dest_node
-                        dest_node.siblings[source_node.node_id] = source_node
+                    if dest_node_id not in nodes[source_node_id].siblings:
+                        nodes[source_node_id].siblings.add(dest_node_id)
+                        nodes[dest_node_id].siblings.add(source_node_id)
 
 
 def construct_topology(total_gpus: int, total_layers: int, d_max=2, generator=lambda x,y,z: x):
@@ -274,9 +281,9 @@ def construct_topology(total_gpus: int, total_layers: int, d_max=2, generator=la
         layer_nodes = []
         node_type = NodeType.GPU if i == 0 else NodeType.SWITCH
         for _ in range(node_count):
-            cur_node = GraphNode(node_type)
+            cur_node = GraphNode(node_type, i)
             all_nodes[cur_node.node_id] = cur_node
-            layer_nodes.append(cur_node)
+            layer_nodes.append(cur_node.node_id)
         layers.append(layer_nodes)
     for (i, j), params in connection_blocks.items():
         params = connection_blocks.get((i, j))
@@ -297,17 +304,17 @@ def construct_topology(total_gpus: int, total_layers: int, d_max=2, generator=la
             
             for m in range(block_size_i):
                 source_node_index = k * block_size_i + m
-                source_node = layers[i][source_node_index]
+                source_node_id = layers[i][source_node_index]
                 
                 for link in range(1, e_ij + 1):
                     target_node_index_in_block = (e_ij * m + link - 1) % block_size_j
                     target_node_index = target_block_j_index * block_size_j + target_node_index_in_block
-                    target_node = layers[j][target_node_index]
+                    target_node_id = layers[j][target_node_index]
                     
-                    source_node.siblings[target_node.node_id] = target_node
-                    target_node.siblings[source_node.node_id] = source_node
-    add_intra_layer_connections(layers, intra_blueprint)
-    return generator(layers, connection_blocks, intra_blueprint)
+                    all_nodes[source_node_id].siblings.add(target_node_id)
+                    all_nodes[target_node_id].siblings.add(source_node_id)
+    add_intra_layer_connections(all_nodes, layers, intra_blueprint)
+    return generator(Topology(all_nodes,layers), connection_blocks, intra_blueprint)
 
 
 
@@ -327,23 +334,21 @@ if __name__ == "__main__":
 
     # 2. Print detailed topology information
     print("\n--- Topology Details ---")
-    total_nodes = 0
-    for i, layer in enumerate(topology):
+    for i, layer in enumerate(topology.layers):
         print(f"Layer {i} ({'GPU' if i == 0 else 'Switch'}): Node count = {len(layer)}")
-        total_nodes += len(layer)
-        for node in layer:
-            sibling_ids = sorted([node.node_id for node in node.siblings.values()])
-            print(f"  - Node {node.node_id} ({node.node_type.value}) connected to: {sibling_ids}")
-    print(f"\nTotal nodes in topology: {total_nodes}")
+        for node_id in layer:
+            sibling_ids = sorted(topology.nodes[node_id].siblings)
+            print(f"  - Node {node_id} ({topology.nodes[node_id].node_type.value}) connected to: {sibling_ids}")
+    print(f"\nTotal nodes in topology: {len(topology.nodes)}")
 
     # 3. Validate bidirectional connections
     print("\n--- Topology Integrity Check ---")
     all_connections_valid = True
-    for layer in topology:
-        for node in layer:
-            for neighbor in node.siblings.values():
-                if node.node_id not in neighbor.siblings:
-                    print(f"Error: Node {node.node_id} connects to {neighbor.node_id}, but {neighbor.node_id} does not connect back.")
+    for layer in topology.layers:
+        for node_id in layer:
+            for neighbor_id in topology.nodes[node_id].siblings:
+                if node_id not in topology.nodes[neighbor_id].siblings:
+                    print(f"Error: Node {node_id} connects to {neighbor_id}, but {neighbor_id} does not connect back.")
                     all_connections_valid = False
 
     if all_connections_valid:

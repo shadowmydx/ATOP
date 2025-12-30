@@ -24,22 +24,22 @@ except Exception as e:
 # 2. Print detailed topology information
 print("\n--- Topology Details ---")
 total_nodes = 0
-for i, layer in enumerate(topology):
+for i, layer in enumerate(topology.layers):
     print(f"Layer {i} ({'GPU' if i == 0 else 'Switch'}): Node count = {len(layer)}")
     total_nodes += len(layer)
     for node in layer:
-        sibling_ids = sorted([node.node_id for node in node.siblings.values()])
+        sibling_ids = sorted( node.siblings)
         print(f"  - Node {node.node_id} ({node.node_type.value}) connected to: {sibling_ids}")
 print(f"\nTotal nodes in topology: {total_nodes}")
 
 # 3. Validate bidirectional connections
 print("\n--- Topology Integrity Check ---")
 all_connections_valid = True
-for layer in topology:
+for layer in topology.layers:
     for node in layer:
-        for neighbor in node.siblings.values():
-            if node.node_id not in neighbor.siblings:
-                print(f"Error: Node {node.node_id} connects to {neighbor.node_id}, but {neighbor.node_id} does not connect back.")
+        for neighbor_node_id in node.siblings:
+            if node.node_id not in topology.nodes[neighbor_node_id].siblings:
+                print(f"Error: Node {node.node_id} connects to {neighbor_node_id}, but {neighbor_node_id} does not connect back.")
                 all_connections_valid = False
 
 if all_connections_valid:
