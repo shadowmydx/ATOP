@@ -3,6 +3,7 @@ from fractions import Fraction
 import math
 from generator.network import NodeType, GraphNode
 from NSGAII.solution import NSGASolution
+from simulator.official_forestcoll_scorer import OptimalBranchingsAlgo
 
 def calculate_optimality_star(nodes, edges, compute_nodes):
     """
@@ -110,3 +111,40 @@ def forestcoll_score(solution: NSGASolution):
     
     score = calculate_optimality_star(nodes, edges, compute_nodes)
     return score
+
+def forestcoll_official_score(solution: NSGASolution):
+    net_topo = solution.get_item()
+    connection_blocks = net_topo.connection_blocks
+    intra_blueprint = net_topo.blueprint
+    
+    nodes =  []     
+    edges = {}
+    compute_nodes = []
+    
+    for node_id,node in net_topo.topology.nodes.items():
+        nodes.append(node_id)
+        if node.node_type == NodeType.GPU:
+            compute_nodes.append(node_id)
+        for sibling_id in node.siblings:   
+            sibling_layer = net_topo.topology.nodes[sibling_id].layer        
+            if node.layer == sibling_layer:
+                bandwidth = intra_blueprint[node.layer]['Bii']
+            else:
+                node_layer, sibling_layer = min(node.layer, sibling_layer), max(node.layer, sibling_layer)
+                bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
+            edges[(node_id, sibling_id)] = bandwidth
+    
+    G = nx.DiGraph()
+    for n in nodes:
+        G.add_node(n)
+    for (u, v), b in edges.items():
+        G.add_edge(u, v, capacity=b)
+    
+    algo = OptimalBranchingsAlgo(G, capacitated=True, compute_nodes=compute_nodes)
+    U, k = algo.binary_search()
+    if U == 0 and k == 0:
+        return 0
+    opt_algbw = 1 / algo.convertToRuntime(U, k)
+    # print(f"optimal algbw: {opt_algbw:.2f} GB/s")
+        
+    return opt_algbw

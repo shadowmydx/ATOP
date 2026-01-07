@@ -6,6 +6,7 @@ from NSGAII.solution import NSGASolution
 from util.process_pool import ProcessPool
 from simulator.forestcoll_scorer import forestcoll_score
 from simulator.networkcost_scorer import network_cost
+from simulator.faulttolerance_scorer import fault_tolerance_score
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -13,8 +14,9 @@ from tqdm import tqdm
 def evaluate_single_solution(solution):
     latency = - forestcoll_score(solution)
     cost = - network_cost(solution)
+    faulttolerance = -fault_tolerance_score(solution)
     
-    return (latency, cost, 0)
+    return (latency, cost, faulttolerance)
 
 
 def nsga_atop_fitness_calculation(population):

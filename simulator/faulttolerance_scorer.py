@@ -100,7 +100,7 @@ def calculate_apl_fail(G, switch_nodes, gpu_nodes):
                 valid_pairs += 1
             except nx.NetworkXNoPath:
                 # 无可达路径，跳过该GPU对
-                continue
+                return float('inf')
             except nx.NodeNotFound:
                 # 节点被移除（理论上不会触发，因为只移除交换机）
                 continue
