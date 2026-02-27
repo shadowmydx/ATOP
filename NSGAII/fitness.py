@@ -1,5 +1,6 @@
 import sys
 import os
+import math
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 from NSGAII.solution import NSGASolution
@@ -16,7 +17,26 @@ def evaluate_single_solution(solution):
     cost = - network_cost(solution)
     faulttolerance = -fault_tolerance_score(solution)
     
+    if math.isinf(latency) or cost == 0 or math.isinf(faulttolerance):
+        return (-float('inf'), -float('inf'), -float('inf'))
     return (latency, cost, faulttolerance)
+
+
+def nsga_atop_fitness_calculation_paralleism(population, parallelism):
+    total_size = len(population)
+    with ProcessPoolExecutor(max_workers=parallelism) as executor:
+        future_to_sol = {executor.submit(evaluate_single_solution, sol): sol for sol in population}
+        with tqdm(total=total_size, desc="  └─ Evaluating Individuals", leave=False, position=1) as pbar:
+            for future in as_completed(future_to_sol):
+                solution = future_to_sol[future]
+                try:
+                    score = future.result()
+                    solution.fitness_score = score
+                except Exception as e:
+                    print(f"\n[Error] Individual evaluation failed: {e}")
+                finally:
+                    pbar.update(1)
+    return population
 
 
 def nsga_atop_fitness_calculation(population):

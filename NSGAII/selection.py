@@ -1,5 +1,6 @@
 import sys
 import os
+import pickle
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 from NSGAII.solution import NSGASolution
@@ -101,5 +102,25 @@ def test_pareto_sort():
         print(each_item.get_fitness_score())
 
 
+def test_merge_and_pareto_from_pickle(f1, f2):
+    with open(f1, 'rb') as fp: list1 = pickle.load(fp)
+    with open(f2, 'rb') as fp: list2 = pickle.load(fp)
+    
+    merged = list1 + list2
+    print(f"Merged: {len(merged)} solutions")
+
+    print("--- Pareto Sort ---")
+    fronts = nsga_pareto_sort(merged)
+    for i, front in enumerate(fronts, 1):
+        print(f"Front {i}:")
+        for sol in front: print(f"  {sol.get_fitness_score()}")
+        print("one front end.")
+
+    print(f"\n--- Select Top {len(list1)} ---")
+    selected = nsga_pareto_selection(merged, len(list1))
+    for sol in selected: print(f"  {sol.get_fitness_score()}")
+
+
 if __name__ == "__main__":
-    test_pareto_sort()
+    #test_pareto_sort()
+    test_merge_and_pareto_from_pickle("iter_378.pkl", "iter_379.pkl")
