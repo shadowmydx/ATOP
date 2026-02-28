@@ -10,6 +10,8 @@ from simulator.networkcost_scorer import network_cost
 from simulator.faulttolerance_scorer import fault_tolerance_score
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
+from reward.reward_chain import RewardChain
+from reward.topology_feasible import is_solution_feasible
 
 
 def evaluate_single_solution(solution):
@@ -26,6 +28,30 @@ def nsga_atop_fitness_calculation_paralleism(population, parallelism):
     total_size = len(population)
     with ProcessPoolExecutor(max_workers=parallelism) as executor:
         future_to_sol = {executor.submit(evaluate_single_solution, sol): sol for sol in population}
+        with tqdm(total=total_size, desc="  └─ Evaluating Individuals", leave=False, position=1) as pbar:
+            for future in as_completed(future_to_sol):
+                solution = future_to_sol[future]
+                try:
+                    score = future.result()
+                    solution.fitness_score = score
+                except Exception as e:
+                    print(f"\n[Error] Individual evaluation failed: {e}")
+                finally:
+                    pbar.update(1)
+    return population
+
+
+def evaluate_feasible_solution(solution):
+    cur_chain = RewardChain()
+    cur_chain.add_reward_function(is_solution_feasible, "feasible")
+    result = cur_chain.default_reward_processing(solution)
+    return (result, result, result)
+
+
+def nsga_atop_feasible_fitness_calculation_paralleism(population, parallelism):
+    total_size = len(population)
+    with ProcessPoolExecutor(max_workers=parallelism) as executor:
+        future_to_sol = {executor.submit(evaluate_feasible_solution, sol): sol for sol in population}
         with tqdm(total=total_size, desc="  └─ Evaluating Individuals", leave=False, position=1) as pbar:
             for future in as_completed(future_to_sol):
                 solution = future_to_sol[future]
