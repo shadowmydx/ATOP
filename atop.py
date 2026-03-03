@@ -4,7 +4,7 @@ import argparse
 from framework.evolutionary import EvolutionaryAlgorithm
 from NSGAII.selection import nsga_pareto_selection
 from NSGAII.solution import NSGASolution, NetTopology
-from NSGAII.fitness import nsga_atop_fitness_calculation, nsga_atop_fitness_calculation_paralleism
+from NSGAII.fitness import nsga_atop_fitness_calculation, nsga_atop_fitness_calculation_paralleism, nsga_atop_feasible_fitness_calculation_paralleism
 from NSGAII.mutation import nsga_atop_mutation, solution_generater
 from generator.network import construct_topology
 import os, pickle, csv
@@ -88,7 +88,8 @@ def entry():
     args = parser.parse_args()
     task_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its)
+    # atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its)
+    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_feasible_fitness_calculation_paralleism, args.its)
     
     atop.optimize_observations(initilize_solutions_observations(args.gpus, args.solutions), args.parallel, args.gpus, task_id)
 
