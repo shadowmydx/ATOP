@@ -27,12 +27,13 @@ def build_simple_topology():
 
 def main():
     # topology, connection_blocks, intra_blueprint = build_simple_topology()
-    total_gpus = 128
+    total_gpus = 256
     total_layers = 2
-    num_topo = 1
+    total_dimensions = 3
+    num_topo = 2
     solutions = []
     for _ in range(num_topo):
-        topology,connection_blocks,intra_blueprint  = construct_topology(total_gpus, total_layers, generator = lambda x,y,z: [x,y,z])
+        topology,connection_blocks,intra_blueprint  = construct_topology(total_gpus, total_layers, total_dimensions, generator = lambda x,y,z: [x,y,z])
         net_topo = NetTopology(topology, connection_blocks, intra_blueprint)
         solution = NSGASolution(net_topo, fitness_score=None)
         solutions.append(solution)

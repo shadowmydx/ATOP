@@ -11,8 +11,8 @@ import os, pickle, csv
 from datetime import datetime
 
 total_gpus = 1024
-max_layers = random.randint(1, 3)
-max_dimensions = random.randint(1, 5)
+max_layers = 2
+max_dimensions = 3
 
 def save_results(solutions, save_dir="results"):
     if not os.path.exists(save_dir):
