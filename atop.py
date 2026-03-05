@@ -85,11 +85,17 @@ def entry():
     parser.add_argument('--parallel', type=int, default=8, help='Parallel Limitations')
     parser.add_argument('--solutions', type=int, default=100, help='Population')
     parser.add_argument('--sol_worker', type=int, default=0, help='Max workers for parallelism in single solution (<=0 for serial)')
+    parser.add_argument('--seed', type=int, default=None, help='Random seed for reproducibility')
 
     args = parser.parse_args()
-    task_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if args.seed is not None:
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+    import pytz
+    bj_tz = pytz.timezone('Asia/Shanghai')
+    task_id = datetime.now(bj_tz).strftime("%Y%m%d_%H%M%S")
 
-    # atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its)
     atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its, args=args)
 
     # 直接传递 args 到 optimize_observations

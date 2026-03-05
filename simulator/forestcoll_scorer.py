@@ -63,32 +63,32 @@ def calculate_optimality_star(nodes, edges, compute_nodes, args):
 
         # max_worker<=0 时强制串行，否则用 max_worker 并发
         max_worker = min(args.sol_worker, len(compute_nodes))
+        from tqdm import tqdm
+        total_c = len(compute_nodes)
         if max_worker is not None and max_worker > 0:
             try:
                 with ProcessPoolExecutor(max_workers=max_worker) as executor:
                     futures = [executor.submit(_flow_to_target, (aux_G, source, c)) for c in compute_nodes]
-                    for fut in as_completed(futures):
-                        _, flow_value = fut.result()
-                        if flow_value < threshold:
-                            is_feasible = False
-                            for pending in futures:
-                                pending.cancel()
-                            break
+                    with tqdm(total=total_c, desc="maxflow per c", leave=False) as pbar:
+                        for fut in as_completed(futures):
+                            _, flow_value = fut.result()
+                            pbar.update(1)
+                            if flow_value < threshold:
+                                is_feasible = False
+                                # Forcefully shutdown all running processes
+                                executor.shutdown(cancel_futures=True)
+                                break
             except Exception:
                 # 并行失败时回退到串行，保证结果正确性
                 raise ValueError("Parallel flow computation failed, consider setting sol_worker to 0 for serial execution.")
-                # is_feasible = True
-                # for c in compute_nodes:
-                #     flow_value = nx.maximum_flow_value(aux_G, source, c)
-                #     if flow_value < threshold:
-                #         is_feasible = False
-                #         break
         else:
-            for c in compute_nodes:
-                flow_value = nx.maximum_flow_value(aux_G, source, c)
-                if flow_value < threshold:
-                    is_feasible = False
-                    break
+            with tqdm(total=total_c, desc="maxflow per c", leave=False) as pbar:
+                for c in compute_nodes:
+                    flow_value = nx.maximum_flow_value(aux_G, source, c)
+                    pbar.update(1)
+                    if flow_value < threshold:
+                        is_feasible = False
+                        break
         
         if is_feasible:
             r = inv_x  # 当前 1/x 偏大或刚好，尝试更小的 1/x (更大的 x)
