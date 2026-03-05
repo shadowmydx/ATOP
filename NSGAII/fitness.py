@@ -14,20 +14,21 @@ from reward.reward_chain import RewardChain
 from reward.topology_feasible import is_solution_feasible
 
 
-def evaluate_single_solution(solution):
-    latency = - forestcoll_score(solution)
+def evaluate_single_solution(solution,args):
+    latency = - forestcoll_score(solution,args)
     cost = - network_cost(solution)
-    faulttolerance = -fault_tolerance_score(solution)
+    #faulttolerance = -fault_tolerance_score(solution)
+    faulttolerance = 0
     
     if math.isinf(latency) or cost == 0 or math.isinf(faulttolerance):
         return (-float('inf'), -float('inf'), -float('inf'))
     return (latency, cost, faulttolerance)
 
 
-def nsga_atop_fitness_calculation_paralleism(population, parallelism):
+def nsga_atop_fitness_calculation_paralleism(population, parallelism,args):
     total_size = len(population)
     with ProcessPoolExecutor(max_workers=parallelism) as executor:
-        future_to_sol = {executor.submit(evaluate_single_solution, sol): sol for sol in population}
+        future_to_sol = {executor.submit(evaluate_single_solution, sol, args): sol for sol in population}
         with tqdm(total=total_size, desc="  └─ Evaluating Individuals", leave=False, position=1) as pbar:
             for future in as_completed(future_to_sol):
                 solution = future_to_sol[future]
@@ -65,7 +66,7 @@ def nsga_atop_feasible_fitness_calculation_paralleism(population, parallelism):
     return population
 
 
-def nsga_atop_fitness_calculation(population):
+def nsga_atop_fitness_calculation(population,args):
     #for solution in population:
     #    fitness = {}
     #    fitness['latency'] = forestcoll_score(solution)
@@ -80,7 +81,7 @@ def nsga_atop_fitness_calculation(population):
     total_size = len(population)
     fixed_parallelism = 8
     with ProcessPoolExecutor(max_workers=fixed_parallelism) as executor:
-        future_to_sol = {executor.submit(evaluate_single_solution, sol): sol for sol in population}
+        future_to_sol = {executor.submit(evaluate_single_solution, sol, args): sol for sol in population}
         with tqdm(total=total_size, desc="  └─ Evaluating Individuals", leave=False, position=1) as pbar:
             for future in as_completed(future_to_sol):
                 solution = future_to_sol[future]

@@ -1,11 +1,18 @@
 import networkx as nx
 from fractions import Fraction
 import math
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from generator.network import NodeType, GraphNode
 from NSGAII.solution import NSGASolution
 from simulator.official_forestcoll_scorer import OptimalBranchingsAlgo
 
-def calculate_optimality_star(nodes, edges, compute_nodes):
+
+def _flow_to_target(task):
+    aux_g, source, target = task
+    return target, nx.maximum_flow_value(aux_g, source, target)
+
+def calculate_optimality_star(nodes, edges, compute_nodes, args):
     """
     实现 ForestColl 算法 1：求解公式 (*) 的值 (1/x*)
     :param nodes: 所有节点列表 (计算节点 Vc + 交换机节点 Vs)
@@ -52,13 +59,36 @@ def calculate_optimality_star(nodes, edges, compute_nodes):
         # 判定准则：检查从 s 到每个计算节点的 maxflow 是否为 Nx [cite: 62, 75]
         is_feasible = True
         target_flow = N * x
-        for c in compute_nodes:
-            # 使用 NetworkX 的预推流或 Edmonds-Karp 计算最大流
-            flow_value = nx.maximum_flow_value(aux_G, source, c)
-            # 考虑浮点数精度误差
-            if flow_value < target_flow - 1e-9:
-                is_feasible = False
-                break
+        threshold = target_flow - 1e-9
+
+        # max_worker<=0 时强制串行，否则用 max_worker 并发
+        max_worker = min(args.sol_worker, len(compute_nodes))
+        if max_worker is not None and max_worker > 0:
+            try:
+                with ProcessPoolExecutor(max_workers=max_worker) as executor:
+                    futures = [executor.submit(_flow_to_target, (aux_G, source, c)) for c in compute_nodes]
+                    for fut in as_completed(futures):
+                        _, flow_value = fut.result()
+                        if flow_value < threshold:
+                            is_feasible = False
+                            for pending in futures:
+                                pending.cancel()
+                            break
+            except Exception:
+                # 并行失败时回退到串行，保证结果正确性
+                raise ValueError("Parallel flow computation failed, consider setting sol_worker to 0 for serial execution.")
+                # is_feasible = True
+                # for c in compute_nodes:
+                #     flow_value = nx.maximum_flow_value(aux_G, source, c)
+                #     if flow_value < threshold:
+                #         is_feasible = False
+                #         break
+        else:
+            for c in compute_nodes:
+                flow_value = nx.maximum_flow_value(aux_G, source, c)
+                if flow_value < threshold:
+                    is_feasible = False
+                    break
         
         if is_feasible:
             r = inv_x  # 当前 1/x 偏大或刚好，尝试更小的 1/x (更大的 x)
@@ -87,7 +117,7 @@ compute_nodes = [f'c{i}' for i in range(1, 9)]
 edges = {} # 此处填入拓扑连接和带宽
 # result = calculate_optimality_star(nodes, edges, compute_nodes)
 
-def forestcoll_score(solution: NSGASolution):
+def forestcoll_score(solution: NSGASolution, args):
     net_topo = solution.get_item()
     connection_blocks = net_topo.connection_blocks
     intra_blueprint = net_topo.blueprint
@@ -109,7 +139,7 @@ def forestcoll_score(solution: NSGASolution):
                 bandwidth = connection_blocks[(node_layer, sibling_layer)]['b_ij']
             edges[(node_id, sibling_id)] = bandwidth
     
-    score = calculate_optimality_star(nodes, edges, compute_nodes)
+    score = calculate_optimality_star(nodes, edges, compute_nodes, args)
     return score
 
 def forestcoll_official_score(solution: NSGASolution):

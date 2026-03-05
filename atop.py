@@ -84,14 +84,16 @@ def entry():
     parser.add_argument('--its', type=int, default=3, help='Limitation Iterations')
     parser.add_argument('--parallel', type=int, default=8, help='Parallel Limitations')
     parser.add_argument('--solutions', type=int, default=100, help='Population')
- 
+    parser.add_argument('--sol_worker', type=int, default=0, help='Max workers for parallelism in single solution (<=0 for serial)')
+
     args = parser.parse_args()
     task_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its)
-    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_feasible_fitness_calculation_paralleism, args.its)
-    
-    atop.optimize_observations(initilize_solutions_observations(args.gpus, args.solutions), args.parallel, args.gpus, task_id)
+    atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its, args=args)
+
+    # 直接传递 args 到 optimize_observations
+    atop.optimize_observations(initilize_solutions_observations(args.gpus, args.solutions), args=args, task_id=task_id)
 
 if __name__ == "__main__":
     entry()
