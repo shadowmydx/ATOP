@@ -96,10 +96,14 @@ def entry():
     bj_tz = pytz.timezone('Asia/Shanghai')
     task_id = datetime.now(bj_tz).strftime("%Y%m%d_%H%M%S")
 
+    import time
+    start_time = time.perf_counter()
     atop = EvolutionaryAlgorithm(nsga_atop_mutation, nsga_pareto_selection, nsga_atop_fitness_calculation_paralleism, args.its, args=args)
 
     # 直接传递 args 到 optimize_observations
     atop.optimize_observations(initilize_solutions_observations(args.gpus, args.solutions), args=args, task_id=task_id)
+    end_time = time.perf_counter()
+    print(f"[Total Runtime] {end_time - start_time:.3f} seconds for main optimization process.")
 
 if __name__ == "__main__":
     entry()
